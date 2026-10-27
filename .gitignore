@@ -1,0 +1,16 @@
+.toolchain/
+**/target/
+dist/
+.DS_Store
+**/src-tauri/gen/schemas/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.log
+**/session.bin
+**/position.json
+**/cache.json

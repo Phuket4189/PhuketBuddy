@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PhuketBuddy · 桌面气泡 设计稿</title>
+<style>
+  :root{
+    --teal:#18A7A0; --teal-hi:#2FD4C8; --teal-dim:#0F7C77;
+    --ink:#25292D; --ink-2:#1A1E22;
+    --panel:rgba(18,24,31,.86); --panel-2:rgba(28,36,45,.72);
+    --line:rgba(255,255,255,.09); --line-2:rgba(255,255,255,.05);
+    --txt:#E8EFF5; --muted:#93A3B1; --dim:#6B7B8A;
+    --ok:#34D399; --warn:#F5A524; --bad:#F05A5A;
+    --r-panel:20px;
+    --shadow:0 18px 48px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.35);
+    --font:"Segoe UI Variable Display","Segoe UI","Microsoft YaHei UI","Microsoft YaHei",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; font-family:var(--font); color:var(--txt); overflow:hidden;
+    background:
+      radial-gradient(1200px 700px at 78% -10%, rgba(24,167,160,.28), transparent 60%),
+      radial-gradient(900px 600px at 10% 110%, rgba(52,120,220,.22), transparent 62%),
+      linear-gradient(150deg,#0A1119 0%,#0C1A20 45%,#0A1017 100%);
+  }
+  /* 模拟桌面壁纸的装饰，用来展示吸边/透明效果 */
+  .wall-deco{position:fixed;inset:0;pointer-events:none;opacity:.5;
+    background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
+    background-size:64px 64px; mask-image:radial-gradient(circle at 60% 40%,#000 0%,transparent 75%)}
+  .wall-glow{position:fixed;width:520px;height:520px;border-radius:50%;filter:blur(90px);opacity:.35;pointer-events:none}
+  .g1{background:#127C7A;left:52%;top:-160px}
+  .g2{background:#1E4E8C;left:-140px;bottom:-220px}
+
+  /* ===== 页头（不属于产品界面） ===== */
+  .spec-bar{position:fixed;left:50%;transform:translateX(-50%);top:18px;z-index:50;
+    display:flex;align-items:center;gap:6px;padding:6px;border-radius:14px;
+    background:rgba(12,18,24,.72);border:1px solid var(--line);backdrop-filter:blur(14px);
+    box-shadow:0 10px 30px rgba(0,0,0,.4);font-size:12px}
+  .spec-bar b{font-size:12px;font-weight:600;color:var(--muted);padding:0 10px;letter-spacing:.4px}
+  .spec-bar button{border:0;background:transparent;color:var(--muted);padding:7px 12px;border-radius:10px;
+    font:inherit;cursor:pointer;transition:.18s;font-size:12px}
+  .spec-bar button:hover{background:rgba(255,255,255,.06);color:var(--txt)}
+  .spec-bar button.on{background:linear-gradient(180deg,rgba(24,167,160,.9),rgba(15,124,119,.9));color:#fff;
+    box-shadow:0 4px 14px rgba(24,167,160,.35)}
+  .hint{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);font-size:12px;color:var(--dim);z-index:40;
+    display:flex;gap:14px;align-items:center}
+  .hint kbd{font-family:var(--font);background:rgba(255,255,255,.07);border:1px solid var(--line);
+    border-radius:6px;padding:2px 6px;font-size:11px;color:var(--muted)}
+
+  /* ===== 气泡（始终存在） ===== */
+  #bubble{
+    position:fixed; z-index:30; width:68px; height:68px; border-radius:50%;
+    cursor:grab; user-select:none; -webkit-user-select:none;
+    transition:width .28s cubic-bezier(.2,.9,.25,1), height .28s cubic-bezier(.2,.9,.25,1),
+               box-shadow .25s, transform .18s;
+    --p:32;
+    background:
+      radial-gradient(120% 120% at 28% 20%, rgba(255,255,255,.30), rgba(255,255,255,0) 42%),
+      conic-gradient(from -90deg, var(--teal-hi) calc(var(--p)*1%), rgba(255,255,255,.10) 0),
+      radial-gradient(90% 90% at 50% 50%, #0E3B3C 0%, #0A1D22 70%);
+    box-shadow:0 14px 34px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.14) inset,
+               0 0 26px rgba(24,167,160,.35);
+    display:grid; place-items:center; gap:0;
+    animation:float 5.6s ease-in-out infinite;
+  }
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+  #bubble::after{ /* 环形进度遮罩，让 conic 只显示为细环 */
+    content:""; position:absolute; inset:5px; border-radius:50%;
+    background:radial-gradient(90% 90% at 46% 34%, #103337 0%, #0A1B20 68%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.12), inset 0 -8px 18px rgba(0,0,0,.5);
+  }
+  #bubble .face{position:relative;z-index:2;display:grid;place-items:center;line-height:1;text-align:center}
+  #bubble .bal{font-size:15px;font-weight:700;letter-spacing:-.2px;
+    text-shadow:0 1px 6px rgba(0,0,0,.5); font-variant-numeric:tabular-nums}
+  #bubble .unit{font-size:9px;color:#9FE9E2;letter-spacing:1.4px;margin-top:3px;font-weight:600}
+  #bubble:hover{transform:scale(1.06);box-shadow:0 16px 40px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.2) inset,0 0 34px rgba(47,212,200,.5)}
+  #bubble.dragging{cursor:grabbing;animation:none;transform:scale(1.03)}
+  #bubble.low{background:
+      radial-gradient(120% 120% at 28% 20%, rgba(255,255,255,.28), rgba(255,255,255,0) 42%),
+      conic-gradient(from -90deg, var(--warn) calc(var(--p)*1%), rgba(255,255,255,.10) 0),
+      radial-gradient(90% 90% at 50% 50%, #3A2A0C 0%, #1B1409 70%);
+      box-shadow:0 14px 34px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.14) inset,0 0 30px rgba(245,165,36,.5);
+      animation:float 5.6s ease-in-out infinite, warnPulse 2.4s ease-in-out infinite}
+  @keyframes warnPulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.22)}}
+  #bubble.low .unit{color:#FFD79A}
+  #bubble .peek{position:absolute;z-index:3;font-size:10px;color:#9FE9E2;font-weight:700;display:none}
+  #bubble.snapped .peek{display:block}
+
+  /* ===== 面板 ===== */
+  #panel{
+    position:fixed; z-index:29; width:336px; border-radius:var(--r-panel);
+    background:var(--panel); backdrop-filter:blur(26px) saturate(140%);
+    border:1px solid var(--line); box-shadow:var(--shadow);
+    opacity:0; transform:translateY(6px) scale(.985); pointer-events:none;
+    transition:opacity .18s ease, transform .22s cubic-bezier(.2,.9,.25,1);
+    overflow:hidden;
+  }
+  #panel.open{opacity:1; transform:none; pointer-events:auto}
+  #panel::before{content:"";position:absolute;inset:0 0 auto 0;height:1px;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent)}
+  .pn-head{display:flex;align-items:center;gap:10px;padding:14px 16px 12px}
+  .brand{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:none;
+    background:linear-gradient(150deg,#233037,#151C22);border:1px solid var(--line);position:relative}
+  .brand svg{width:19px;height:18px}
+  .pn-title{flex:1;min-width:0}
+  .pn-title h1{font-size:13px;margin:0;font-weight:650;letter-spacing:.2px}
+  .pn-title p{margin:2px 0 0;font-size:10.5px;color:var(--dim);display:flex;align-items:center;gap:5px}
+  .dot{width:5px;height:5px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok)}
+  .icon-btn{width:26px;height:26px;border-radius:8px;border:1px solid transparent;background:rgba(255,255,255,.05);
+    color:var(--muted);display:grid;place-items:center;cursor:pointer;transition:.15s;flex:none}
+  .icon-btn:hover{background:rgba(255,255,255,.12);color:#fff}
+  .icon-btn svg{width:14px;height:14px}
+
+  .balance{padding:4px 16px 14px;display:flex;align-items:flex-end;justify-content:space-between}
+  .balance .big{font-size:31px;font-weight:700;letter-spacing:-1px;line-height:1;font-variant-numeric:tabular-nums;
+    background:linear-gradient(180deg,#fff,#BFEFEA);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .balance .big small{font-size:12px;font-weight:600;letter-spacing:0;color:var(--muted);-webkit-text-fill-color:var(--muted);margin-left:4px}
+  .balance .sub{font-size:10.5px;color:var(--dim);margin-top:6px}
+  .balance .sub b{color:var(--teal-hi);font-weight:600}
+  .badge{font-size:10px;padding:4px 8px;border-radius:999px;border:1px solid var(--line);
+    background:rgba(24,167,160,.12);color:#8FE3DD;white-space:nowrap}
+
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line-2);
+    border-top:1px solid var(--line-2);border-bottom:1px solid var(--line-2)}
+  .stat{background:rgba(14,19,25,.55);padding:11px 16px}
+  .stat .k{font-size:10px;color:var(--dim);display:flex;align-items:center;gap:4px}
+  .stat .v{font-size:15px;font-weight:650;margin-top:4px;font-variant-numeric:tabular-nums}
+  .stat .v em{font-size:10px;font-style:normal;color:var(--dim);font-weight:500;margin-left:3px}
+
+  .chart{padding:13px 16px 6px}
+  .chart .row{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+  .chart .row span{font-size:10.5px;color:var(--muted);font-weight:600;letter-spacing:.3px}
+  .chart .row i{font-size:10px;color:var(--dim);font-style:normal}
+  .bars{display:flex;align-items:flex-end;gap:5px;height:46px}
+  .bars .b{flex:1;border-radius:4px 4px 2px 2px;background:linear-gradient(180deg,rgba(47,212,200,.85),rgba(24,167,160,.25));
+    position:relative;transition:filter .2s;min-height:4px}
+  .bars .b:hover{filter:brightness(1.35)}
+  .bars .b.today{background:linear-gradient(180deg,#7FF0E7,#18A7A0);box-shadow:0 0 14px rgba(47,212,200,.45)}
+  .xaxis{display:flex;gap:5px;margin-top:6px}
+  .xaxis span{flex:1;text-align:center;font-size:9px;color:var(--dim)}
+
+  .keys{padding:6px 16px 4px}
+  .keys .hd{display:flex;align-items:center;justify-content:space-between;padding:8px 0}
+  .keys .hd span{font-size:10.5px;font-weight:600;color:var(--muted);letter-spacing:.3px}
+  .keys .hd a{font-size:10px;color:var(--teal-hi);text-decoration:none;opacity:.9}
+  .key{display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:10px;transition:.15s;cursor:pointer}
+  .key:hover{background:rgba(255,255,255,.055)}
+  .key .ico{width:22px;height:22px;border-radius:6px;background:rgba(24,167,160,.14);color:#6FE0D8;
+    display:grid;place-items:center;flex:none;font-size:10px;font-weight:700}
+  .key .mid{flex:1;min-width:0}
+  .key .nm{font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .key .mk{font-size:10px;color:var(--dim);font-family:Consolas,monospace;margin-top:2px}
+  .key .qty{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;flex:none}
+  .key .st{width:6px;height:6px;border-radius:50%;flex:none}
+
+  .pn-foot{margin-top:8px;padding:10px 12px;border-top:1px solid var(--line-2);
+    display:flex;align-items:center;gap:6px;background:rgba(10,15,20,.35)}
+  .pn-foot .refresh{font-size:9.5px;color:var(--dim);flex:1;padding-left:4px}
+  .fbtn{border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--muted);border-radius:9px;
+    padding:6px 10px;font:inherit;font-size:10.5px;cursor:pointer;transition:.15s;display:flex;align-items:center;gap:5px}
+  .fbtn:hover{background:rgba(255,255,255,.1);color:#fff}
+  .fbtn.primary{background:linear-gradient(180deg,rgba(24,167,160,.95),rgba(13,104,100,.95));
+    border-color:rgba(47,212,200,.35);color:#EAFBF9;box-shadow:0 4px 14px rgba(24,167,160,.3)}
+  .fbtn svg{width:12px;height:12px}
+
+  /* ===== 登录视图 ===== */
+  #login{position:fixed;z-index:29;width:336px;border-radius:var(--r-panel);background:var(--panel);
+    backdrop-filter:blur(26px);border:1px solid var(--line);box-shadow:var(--shadow);display:none;overflow:hidden}
+  #login.show{display:block}
+  .lg-body{padding:22px 20px 18px;text-align:center}
+  .lg-logo{width:52px;height:52px;margin:0 auto 12px;border-radius:16px;display:grid;place-items:center;
+    background:radial-gradient(circle at 30% 20%,rgba(47,212,200,.32),rgba(10,20,25,.9));
+    border:1px solid rgba(255,255,255,.12);box-shadow:0 10px 30px rgba(24,167,160,.25)}
+  .lg-logo svg{width:30px;height:28px}
+  .lg-body h2{margin:0;font-size:15px;font-weight:650}
+  .lg-body p{margin:5px 0 16px;font-size:11px;color:var(--dim);line-height:1.5}
+  .field{text-align:left;margin-bottom:10px}
+  .field label{display:block;font-size:10px;color:var(--muted);margin-bottom:5px;letter-spacing:.3px}
+  .field input{width:100%;height:34px;border-radius:9px;border:1px solid var(--line);background:rgba(0,0,0,.28);
+    color:var(--txt);padding:0 11px;font:inherit;font-size:12px;outline:none;transition:.15s}
+  .field input:focus{border-color:rgba(47,212,200,.55);box-shadow:0 0 0 3px rgba(24,167,160,.15)}
+  .field input::placeholder{color:#5C6B78}
+  .lg-note{font-size:9.5px;color:var(--dim);line-height:1.5;margin:10px 2px 12px;text-align:left}
+  .lg-note b{color:var(--muted);font-weight:600}
+
+  /* ===== 提示气泡 / 低余额 toast ===== */
+  .toast{position:fixed;z-index:45;display:flex;gap:9px;align-items:center;padding:10px 13px;border-radius:12px;
+    background:rgba(30,22,10,.92);border:1px solid rgba(245,165,36,.35);box-shadow:0 12px 30px rgba(0,0,0,.5);
+    font-size:11px;color:#FFE0B2;max-width:260px;opacity:0;transform:translateY(6px);transition:.25s;pointer-events:none}
+  .toast.show{opacity:1;transform:none}
+  .toast .tg{width:22px;height:22px;border-radius:7px;background:rgba(245,165,36,.18);display:grid;place-items:center;flex:none;color:var(--warn)}
+  .toast b{display:block;color:#FFD79A;font-size:11.5px;margin-bottom:1px}
+
+  /* 标注 */
+  .note{position:fixed;z-index:20;font-size:10.5px;color:#7E8E9C;max-width:150px;line-height:1.5}
+  .note b{color:#9FE9E2;font-weight:600}
+  .note::before{content:"";position:absolute;left:-18px;top:6px;width:14px;height:1px;background:rgba(159,233,226,.35)}
+</style>
+</head>
+<body>
+<div class="wall-deco"></div>
+<div class="wall-glow g1"></div>
+<div class="wall-glow g2"></div>
+
+<div class="spec-bar">
+  <b>设计稿预览</b>
+  <button data-state="idle" class="on">气泡常驻</button>
+  <button data-state="panel">展开面板</button>
+  <button data-state="login">首次登录</button>
+  <button data-state="low">低余额提醒</button>
+</div>
+
+<!-- ============ 气泡 ============ -->
+<div id="bubble" style="right:64px;top:300px">
+  <div class="face">
+    <div class="bal">86.75</div>
+    <div class="unit">CREDITS</div>
+  </div>
+</div>
+
+<!-- ============ 面板 ============ -->
+<div id="panel">
+  <div class="pn-head">
+    <div class="brand">
+      <svg viewBox="0 0 421 386"><path fill="#E8EFF5" d="M290 61 L114 77 L96 317 L183 296 L190 160 L297 107 Z M152 102 L246 92 L166 143 Z"/><path fill="#18A7A0" d="M289 117 L266 126 L266 180 L211 196 L212 236 L263 228 L248 294 L329 287 Z"/></svg>
+    </div>
+    <div class="pn-title">
+      <h1>PhuketBuddy</h1>
+      <p><i class="dot"></i>ai.pukitcore.com · 3 分钟前同步</p>
+    </div>
+    <button class="icon-btn" title="设置">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+  </div>
+
+  <div class="balance">
+    <div>
+      <div class="big">86.75<small>credits</small></div>
+      <div class="sub">≈ ¥86.75 · 预计可用 <b>18</b> 天</div>
+    </div>
+    <div class="badge">余额健康</div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="k">今日消耗</div><div class="v">¥4.32<em>/-12%</em></div></div>
+    <div class="stat"><div class="k">今日请求</div><div class="v">1,284<em>次</em></div></div>
+    <div class="stat"><div class="k">本月消耗</div><div class="v">¥41.18</div></div>
+    <div class="stat"><div class="k">近 7 日总量</div><div class="v">9,462<em>tok</em></div></div>
+  </div>
+
+  <div class="chart">
+    <div class="row"><span>近 7 日消耗</span><i>¥ 18.6</i></div>
+    <div class="bars">
+      <div class="b" style="height:38%"></div>
+      <div class="b" style="height:62%"></div>
+      <div class="b" style="height:44%"></div>
+      <div class="b" style="height:78%"></div>
+      <div class="b" style="height:55%"></div>
+      <div class="b" style="height:92%"></div>
+      <div class="b today" style="height:70%"></div>
+    </div>
+    <div class="xaxis"><span>10-20</span><span>10-21</span><span>10-22</span><span>10-23</span><span>10-24</span><span>10-25</span><span>今天</span></div>
+  </div>
+
+  <div class="keys">
+    <div class="hd"><span>API KEYS · 3</span><a href="#">管理</a></div>
+    <div class="key">
+      <div class="ico">K1</div>
+      <div class="mid"><div class="nm">生产环境</div><div class="mk">sk-puk****f3a2</div></div>
+      <div class="qty">¥62.10</div>
+      <div class="st" style="background:var(--ok);box-shadow:0 0 8px var(--ok)"></div>
+    </div>
+    <div class="key">
+      <div class="ico">K2</div>
+      <div class="mid"><div class="nm">本地调试</div><div class="mk">sk-puk****91cd</div></div>
+      <div class="qty">¥24.65</div>
+      <div class="st" style="background:var(--ok);box-shadow:0 0 8px var(--ok)"></div>
+    </div>
+    <div class="key">
+      <div class="ico">K3</div>
+      <div class="mid"><div class="nm">临时测试</div><div class="mk">sk-puk****7e10</div></div>
+      <div class="qty">已过期</div>
+      <div class="st" style="background:var(--dim)"></div>
+    </div>
+  </div>
+
+  <div class="pn-foot">
+    <span class="refresh">自动刷新 5 分钟</span>
+    <button class="fbtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>
+      刷新
+    </button>
+    <button class="fbtn primary">打开网站</button>
+  </div>
+</div>
+
+<!-- ============ 首次登录 ============ -->
+<div id="login">
+  <div class="pn-head">
+    <div class="brand" style="background:rgba(24,167,160,.16)">
+      <svg viewBox="0 0 421 386"><path fill="#E8EFF5" d="M290 61 L114 77 L96 317 L183 296 L190 160 L297 107 Z M152 102 L246 92 L166 143 Z"/><path fill="#18A7A0" d="M289 117 L266 126 L266 180 L211 196 L212 236 L263 228 L248 294 L329 287 Z"/></svg>
+    </div>
+    <div class="pn-title"><h1>登录 PhuketAI</h1><p>账号仅保存在本机</p></div>
+  </div>
+  <div class="lg-body">
+    <div class="field"><label>邮箱</label><input placeholder="you@example.com" /></div>
+    <div class="field"><label>密码</label><input type="password" placeholder="••••••••" /></div>
+    <div class="lg-note">登录后，本软件会读取你的 <b>余额 / 用量 / API Keys</b>。<br/>凭据使用 Windows DPAPI 加密存储，只写入本机。</div>
+    <button class="fbtn primary" style="width:100%;justify-content:center;padding:9px">登录并开始同步</button>
+    <div style="font-size:10px;color:var(--dim);margin-top:10px">还没有账号？<a href="#" style="color:var(--teal-hi);text-decoration:none">去站点注册</a></div>
+  </div>
+</div>
+
+<!-- ============ 低余额 toast ============ -->
+<div class="toast" id="toast" style="right:28px;top:392px">
+  <div class="tg"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div>
+  <div><b>余额偏低</b>剩余 0.42 credits，低于你设定的 1.00 阈值</div>
+</div>
+
+<div class="note" id="note" style="right:96px;top:236px;text-align:right">
+  <b>68×68</b> 常驻气泡<br/>环形进度＝今日额度占用
+</div>
+
+<div class="hint">
+  <span><kbd>点击</kbd> 展开面板</span><span><kbd>拖动</kbd> 移动 / 松手吸边</span><span><kbd>Esc</kbd> 收起</span>
+</div>
+
+<script>
+const bubble = document.getElementById('bubble');
+const panel  = document.getElementById('panel');
+const login  = document.getElementById('login');
+const toast  = document.getElementById('toast');
+const note   = document.getElementById('note');
+
+let pos = { right: 64, top: 300 };
+let dragging = false, moved = false, startX = 0, startY = 0, origX = 0, origY = 0;
+
+function applyPos() {
+  bubble.style.left = 'auto'; bubble.style.top = 'auto';
+  if (pos.right !== undefined) { bubble.style.right = pos.right + 'px'; bubble.style.left = 'auto'; }
+  else { bubble.style.left = pos.x + 'px'; bubble.style.right = 'auto'; }
+  if (pos.top !== undefined) bubble.style.top = pos.top + 'px';
+  layoutPanel();
+}
+
+function rect(el){ const r = el.getBoundingClientRect(); return r; }
+
+/* 面板跟随气泡：优先贴屏幕内侧，空间不足则翻转 */
+function layoutPanel(){
+  const b = rect(bubble);
+  const pw = 336, ph = panel.offsetHeight || 430;
+  const gap = 12;
+  let left = b.left - pw - gap;
+  if (left < 12) left = b.right + gap;
+  if (left + pw > innerWidth - 12) left = innerWidth - pw - 12;
+  let top = b.top + b.height/2 - ph/2;
+  top = Math.max(12, Math.min(top, innerHeight - ph - 12));
+  panel.style.left = left + 'px'; panel.style.top = top + 'px';
+  login.style.left = left + 'px'; login.style.top = top + 'px';
+  toast.style.left = (pos.right !== undefined ? (innerWidth - pos.right - 300) : b.left + 84) + 'px';
+  toast.style.top = (b.top + 84) + 'px'; toast.style.right = 'auto';
+  note.style.left = (b.left - 168) + 'px'; note.style.top = (b.top - 8) + 'px';
+  note.style.right = 'auto'; note.style.textAlign = 'right';
+}
+
+bubble.addEventListener('pointerdown', e => {
+  dragging = true; moved = false;
+  startX = e.clientX; startY = e.clientY;
+  const r = rect(bubble); origX = r.left; origY = r.top;
+  bubble.classList.add('dragging');
+  bubble.setPointerCapture(e.pointerId);
+});
+bubble.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  const dx = e.clientX - startX, dy = e.clientY - startY;
+  if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
+  if (!moved) return;
+  bubble.style.right = 'auto'; bubble.style.left = 'auto';
+  bubble.style.left = Math.max(0, Math.min(innerWidth - 68, origX + dx)) + 'px';
+  bubble.style.top  = Math.max(0, Math.min(innerHeight - 68, origY + dy)) + 'px';
+  layoutPanel();
+});
+bubble.addEventListener('pointerup', e => {
+  if (!dragging) return;
+  dragging = false; bubble.classList.remove('dragging');
+  const r = rect(bubble), snap = 26;
+  const nearRight = innerWidth - r.right, nearLeft = r.left, nearTop = r.top, nearBottom = innerHeight - r.bottom;
+  const m = Math.min(nearRight, nearLeft, nearTop, nearBottom);
+  bubble.classList.remove('snapped');
+  if (m <= snap) {
+    // 吸边 + 8px 露出
+    if (m === nearLeft)  { pos = { right: undefined, x: 8, top: Math.min(r.top, innerHeight - 76) }; }
+    if (m === nearRight) { pos = { right: 8, top: Math.min(r.top, innerHeight - 76) }; }
+    if (m === nearTop)   { pos = { right: undefined, x: Math.min(r.left, innerWidth - 76), top: 8 }; }
+    if (m === nearBottom){ pos = { right: undefined, x: Math.min(r.left, innerWidth - 76), top: innerHeight - 76 }; }
+    bubble.classList.add('snapped');
+  } else {
+    pos = { right: undefined, x: r.left, top: r.top };
+  }
+  applyPos();
+  if (!moved) togglePanel();
+});
+
+function togglePanel(){ panel.classList.contains('open') ? closeAll() : openPanel(); }
+function openPanel(){ login.classList.remove('show'); panel.classList.add('open'); layoutPanel(); }
+function closeAll(){ panel.classList.remove('open'); login.classList.remove('show'); }
+
+/* 状态切换（设计稿预览用） */
+document.querySelectorAll('.spec-bar button').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.spec-bar button').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    const s = btn.dataset.state;
+    closeAll(); bubble.classList.remove('low'); toast.classList.remove('show');
+    if (s === 'panel') { openPanel(); }
+    if (s === 'login') { login.classList.add('show'); panel.classList.remove('open'); layoutPanel(); }
+    if (s === 'low') {
+      bubble.classList.add('low');
+      bubble.style.setProperty('--p', 8);
+      bubble.querySelector('.bal').textContent = '0.42';
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 4200);
+    }
+    if (s === 'idle') { bubble.style.setProperty('--p', 32); bubble.querySelector('.bal').textContent = '86.75'; }
+  };
+});
+
+/* 点击空白处收起 */
+document.addEventListener('pointerdown', e => {
+  if (!panel.classList.contains('open') && !login.classList.contains('show')) return;
+  if (panel.contains(e.target) || login.contains(e.target) || bubble.contains(e.target)) return;
+  closeAll();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAll(); });
+window.addEventListener('resize', layoutPanel);
+
+applyPos();
+// URL 预设状态，便于截图
+const q = new URLSearchParams(location.search).get('state');
+if (q) {
+  const b = document.querySelector(`.spec-bar button[data-state="${q}"]`);
+  if (b) b.click();
+} else {
+  setTimeout(() => panel.classList.add('open') || layoutPanel(), 60);
+}
+</script>
+</body>
+</html>

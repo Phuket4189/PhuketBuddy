@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>PhuketBuddy</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 72px; height: 72px; overflow: hidden;
+    background: transparent;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI Variable Display", "Segoe UI", "Microsoft YaHei UI", sans-serif;
+    -webkit-user-select: none; user-select: none;
+    cursor: grab;
+  }
+  body.dragging { cursor: grabbing; }
+
+  #bubble {
+    position: relative; width: 72px; height: 72px; border-radius: 50%;
+    --p: 0;
+    --ring: #2FD4C8;
+    --glow: rgba(24,167,160,.45);
+    background:
+      radial-gradient(120% 120% at 28% 20%, rgba(255,255,255,.30), rgba(255,255,255,0) 42%),
+      conic-gradient(from -90deg, var(--ring) calc(var(--p) * 1%), rgba(255,255,255,.10) 0);
+    box-shadow: 0 0 0 1px rgba(255,255,255,.14) inset;
+    display: grid; place-items: center;
+    animation: float 5.6s ease-in-out infinite;
+    transition: transform .18s ease, box-shadow .2s ease;
+  }
+  @keyframes float { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-3px) } }
+
+  #bubble::after {
+    content: ""; position: absolute; inset: 5px; border-radius: 50%;
+    background: radial-gradient(90% 90% at 46% 34%, #103337 0%, #0A1B20 68%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.12), inset 0 -8px 18px rgba(0,0,0,.5);
+  }
+
+  .face { position: relative; z-index: 2; text-align: center; line-height: 1; padding-top: 1px; }
+  .bal {
+    font-size: 15px; font-weight: 700; letter-spacing: -.3px; color: #F2FAFF;
+    text-shadow: 0 1px 6px rgba(0,0,0,.55);
+    font-variant-numeric: tabular-nums; font-feature-settings: "tnum";
+    max-width: 58px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .bal.small { font-size: 11px; letter-spacing: 0; }
+  .unit { font-size: 8px; letter-spacing: 1.2px; color: #9FE9E2; margin-top: 3px; font-weight: 600; }
+
+  body.low  { --ring: #F5A524; --glow: rgba(245,165,36,.55); }
+  body.low  .unit { color: #FFD79A; }
+  body.low  #bubble { animation: float 5.6s ease-in-out infinite, pulse 2.2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { filter: brightness(1) } 50% { filter: brightness(1.25) } }
+
+  body.offline #bubble { --ring: #64748B; --glow: rgba(100,116,139,.35); }
+  body.offline .bal { color: #B9C6D2; }
+  body.offline .unit { color: #8FA1B1; }
+
+  body:hover #bubble { transform: scale(1.05); }
+  body.dragging #bubble { animation: none; transform: scale(1.03); }
+
+  .dot {
+    position: absolute; z-index: 3; right: 9px; top: 9px; width: 7px; height: 7px;
+    border-radius: 50%; background: #F5A524; box-shadow: 0 0 8px #F5A524;
+    display: none;
+  }
+  body.offline .dot { display: block; }
+</style>
+</head>
+<body>
+  <div id="bubble">
+    <div class="face">
+      <div class="bal" id="bal">—</div>
+      <div class="unit" id="unit">CREDITS</div>
+    </div>
+    <div class="dot"></div>
+  </div>
+
+<script>
+(function () {
+  const TAURI = window.__TAURI__;
+  const invoke = (cmd, args) => TAURI.core.invoke(cmd, args);
+  const listen = (ev, cb) => TAURI.event.listen(ev, cb);
+  const $bal = document.getElementById('bal');
+  const $unit = document.getElementById('unit');
+
+  let last = null;
+  let threshold = 1.0;
+  let logged = false;
+
+  function fmt(n) {
+    if (n === null || n === undefined || isNaN(n)) return '—';
+    const v = Number(n);
+    if (Math.abs(v) >= 1000) return v.toFixed(0);
+    return v.toFixed(2);
+  }
+
+  function render() {
+    document.body.classList.toggle('low', !!(logged && last != null && last < threshold));
+    if (!logged) {
+      $bal.textContent = '登录';
+      $bal.classList.add('small');
+      $unit.textContent = 'PHUKETAI';
+      document.body.classList.remove('low', 'offline');
+      return;
+    }
+    $bal.classList.remove('small');
+    $bal.textContent = fmt(last);
+    $unit.textContent = 'CREDITS';
+  }
+
+  function applyDashboard(d) {
+    if (!d) return;
+    logged = true;
+    if (typeof d.balance === 'number') last = d.balance;
+    else if (d.user && typeof d.user.balance === 'number') last = d.user.balance;
+    // 环形进度：今日消耗 / 余额
+    const cost = d.stats && typeof d.stats.todayCost === 'number' ? d.stats.todayCost : 0;
+    const base = Math.max(last || 0, 0.01);
+    const p = Math.max(0, Math.min(100, (cost / base) * 100));
+    document.getElementById('bubble').style.setProperty('--p', p.toFixed(1));
+    document.body.classList.remove('offline');
+    render();
+  }
+
+  function applySession(payload) {
+    logged = !!(payload && payload.loggedIn);
+    if (logged && payload.user && typeof payload.user.balance === 'number') {
+      last = payload.user.balance;
+    }
+    if (!logged) { last = null; document.getElementById('bubble').style.setProperty('--p', 0); }
+    render();
+  }
+
+  async function start() {
+    try {
+      const b = await invoke('boot');
+      if (b.settings && typeof b.settings.alert_threshold === 'number') threshold = b.settings.alert_threshold;
+      logged = !!b.loggedIn;
+      if (b.cache) applyDashboard(b.cache);
+      if (b.loggedIn && b.user && typeof b.user.balance === 'number') { last = b.user.balance; }
+      render();
+    } catch (e) {
+      console.error(e);
+      document.body.classList.add('offline');
+    }
+  }
+
+  listen('pb://session', (e) => applySession(e.payload));
+  listen('pb://dashboard', (e) => applyDashboard(e.payload));
+  listen('pb://drag-end', (e) => {
+    document.body.classList.remove('dragging');
+    if (e.payload && e.payload.moved === false) {
+      invoke('toggle_panel').catch(console.error);
+    }
+  });
+
+  document.addEventListener('pointerdown', async (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    document.body.classList.add('dragging');
+    try { await invoke('bubble_down'); } catch (err) { console.error(err); }
+  });
+
+  document.addEventListener('contextmenu', (e) => e.preventDefault());
+  document.addEventListener('dragstart', (e) => e.preventDefault());
+  window.addEventListener('blur', () => document.body.classList.remove('dragging'));
+
+  start();
+})();
+</script>
+</body>
+</html>
